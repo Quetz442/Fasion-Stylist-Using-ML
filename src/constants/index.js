@@ -42,11 +42,11 @@ export const navigation = [
     title: "Features",
     url: "#features",
   },
-  {
+  /*{
     id: "1",
     title: "Pricing",
     url: "#pricing",
-  },
+  },*/
   {
     id: "2",
     title: "How to use",
@@ -78,9 +78,9 @@ export const notificationImages = [notification4, notification3, notification2];
 export const companyLogos = [yourlogo, yourlogo, yourlogo, yourlogo, yourlogo];
 
 export const brainwaveServices = [
-  "Photo generating",
-  "Photo enhance",
-  "Seamless Integration",
+  "Body Shape Analysis",
+  "Undetone Analysis",
+  "Occasion based recommendations",
 ];
 
 export const brainwaveServicesIcons = [
@@ -94,8 +94,8 @@ export const brainwaveServicesIcons = [
 export const roadmap = [
   {
     id: "0",
-    title: "Voice recognition",
-    text: "Enable the chatbot to understand and respond to voice commands, making it easier for users to interact with the app hands-free.",
+    title: "Body Shape Identification",
+    text: "Identify the user's body shape based on their measurements and provide personalized recommendations for clothing styles that flatter their figure.",
     date: "May 2023",
     status: "done",
     imageUrl: roadmap1,
@@ -128,21 +128,21 @@ export const roadmap = [
 ];
 
 export const collabText =
-  "With smart automation and top-notch security, it's the perfect solution for teams looking to work smarter.";
+  "With body shape analysis, we can provide personalized recommendations for clothing styles and colors that flatter the user's figure and complexion. This feature will help users make more informed decisions when choosing outfits.";
 
 export const collabContent = [
   {
     id: "0",
-    title: "Seamless Integration",
+    title: "Body Shape Analysis",
     text: collabText,
   },
   {
     id: "1",
-    title: "Smart Automation",
+    title: "Undertone Analysis",
   },
   {
     id: "2",
-    title: "Top-notch Security",
+    title: "Occasion based recommendations",
   },
 ];
 
@@ -244,16 +244,16 @@ export const pricing = [
 export const benefits = [
   {
     id: "0",
-    title: "Ask anything",
-    text: "Lets users quickly find answers to their questions without having to search through multiple sources.",
+    title: "Body Shape",
+    text: "Identify the user's body shape based on photo uploaded and provide personalized recommendations for clothing styles that flatter their figure.",
     backgroundUrl: "./src/assets/benefits/card-1.svg",
     iconUrl: benefitIcon1,
     imageUrl: benefitImage2,
   },
   {
     id: "1",
-    title: "Improve everyday",
-    text: "The app uses natural language processing to understand user queries and provide accurate and relevant responses.",
+    title: "Undertones",
+    text: "Identify the user's undertones based on photo uploaded and provide personalized recommendations for clothing colors that flatter their complexion.",
     backgroundUrl: "./src/assets/benefits/card-2.svg",
     iconUrl: benefitIcon2,
     imageUrl: benefitImage2,
@@ -261,8 +261,8 @@ export const benefits = [
   },
   {
     id: "2",
-    title: "Connect everywhere",
-    text: "Connect with the AI chatbot from anywhere, on any device, making it more accessible and convenient.",
+    title: "Occasion",
+    text: "Provide personalized recommendations for clothing styles based on  the occasion they are dressing for.",
     backgroundUrl: "./src/assets/benefits/card-3.svg",
     iconUrl: benefitIcon3,
     imageUrl: benefitImage2,
