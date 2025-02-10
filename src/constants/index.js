@@ -79,8 +79,8 @@ export const companyLogos = [yourlogo, yourlogo, yourlogo, yourlogo, yourlogo];
 
 export const brainwaveServices = [
   "Body Shape Analysis",
-  "Undetone Analysis",
-  "Occasion based recommendations",
+  "Undertone Analysis",
+  "Occasion Based Recommendations",
 ];
 
 export const brainwaveServicesIcons = [
@@ -92,7 +92,7 @@ export const brainwaveServicesIcons = [
 ];
 
 export const roadmap = [
-  {
+  /*{
     id: "0",
     title: "Body Shape Identification",
     text: "Identify the user's body shape based on their measurements and provide personalized recommendations for clothing styles that flatter their figure.",
@@ -124,14 +124,14 @@ export const roadmap = [
     date: "May 2023",
     status: "progress",
     imageUrl: roadmap4,
-  },
+  },*/
 ];
 
 export const collabText =
   "With body shape analysis, we can provide personalized recommendations for clothing styles and colors that flatter the user's figure and complexion. This feature will help users make more informed decisions when choosing outfits.";
 
 export const collabContent = [
-  {
+  /*{
     id: "0",
     title: "Body Shape Analysis",
     text: collabText,
@@ -143,11 +143,11 @@ export const collabContent = [
   {
     id: "2",
     title: "Occasion based recommendations",
-  },
+  },*/
 ];
 
 export const collabApps = [
-  {
+  /*{
     id: "0",
     title: "Figma",
     icon: figma,
@@ -202,11 +202,11 @@ export const collabApps = [
     icon: raindrop,
     width: 38,
     height: 32,
-  },
+  },*/
 ];
 
 export const pricing = [
-  {
+  /*{
     id: "0",
     title: "Basic",
     description: "AI chatbot, personalized recommendations",
@@ -238,7 +238,7 @@ export const pricing = [
       "Personalized recommendations based on your preferences",
       "Ability to explore the app and its features without any cost",
     ],
-  },
+  },*/
 ];
 
 export const benefits = [
