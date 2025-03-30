@@ -52,11 +52,11 @@ export const navigation = [
     title: "How to use",
     url: "#how-to-use",
   },
-  {
+  /*{
     id: "3",
     title: "About Us",
     url: "#roadmap",
-  },
+  },*/
   {
     id: "4",
     title: "New account",
