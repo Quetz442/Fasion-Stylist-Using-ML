@@ -1,0 +1,45 @@
+{
+  "type": "object",
+  "description": "Schema for analyzing an image to determine the body shape of a person wearing active wear. Describes the request and potential successful response structure.",
+  "properties": {
+    "image": {
+      "type": "string",
+      "description": "Base64 encoded image data of the person wearing active wear.",
+      "pattern": "^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$"
+    },
+    "analysis_request": {
+      "type": "string",
+      "description": "Indicates the type of analysis requested.",
+      "enum": [
+        "body_shape_analysis"
+      ]
+    },
+    "body_shape": {
+      "type": "string",
+      "description": "The determined body shape or 'person_not_detected' if no person is found.",
+      "enum": [
+        "hourglass",
+        "apple",
+        "pear",
+        "rectangle",
+        "inverted triangle",
+        "person_not_detected"
+      ]
+    },
+    "confidence": {
+      "type": "number",
+      "format": "float",
+      "description": "The confidence score of the body shape determination (0-1).",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "error": {
+      "type": "string",
+      "description": "Error message, if any."
+    }
+  },
+  "required": [
+    "image",
+    "analysis_request"
+  ]
+}

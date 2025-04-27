@@ -11,7 +11,10 @@
     "start": "concurrently \"python backend/manage.py runserver\" \"npm run dev\""
   },
   "dependencies": {
+    "axios": "^1.9.0",
     "concurrently": "^9.1.2",
+    "framer-motion": "^12.6.3",
+    "lucide-react": "^0.487.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-just-parallax": "^3.1.16",

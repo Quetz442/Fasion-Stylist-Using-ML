@@ -1,0 +1,62 @@
+1000 rows dataset for running an ml model that recommends fashion based on bodyshape
+fields:body shape(apple,pear,rectangle,inverted triangle,hourglass),clothing category(tops,bottoms,dresses,outerwear,indian ethnic wear),clothing type(like vneck or bootcut jeans,etc),occassion(formal,casual,party,workwear,streetwear)
+the entries should be accurate and please no wrong info
+give directly downloadeable csv file
+
+
+
+
+1000 rows dataset for running an ml model that recommends fashion based on seasonal colour
+fields: 
+seasonal colour (spring,summer,autumn,winter),
+complimentary colours
+recommended colour combinations
+the entries should be accurate and please no wrong info
+give directly downloadeable csv file
+
+
+
+
+analyse this dataset and give a good ML Model for fashion recommender based on bodyshape
+using random forest classifier and python
+i want to compile and run this code in google colab using the same dataset
+give to versions of code:
+one which will have sample example in itself
+and one where the user will enter the body shape and optionally also the occassion(this is an optional choice for the user)
+the output should be as follows:
+
+Top:(recommended)
+Bottom:(recommended)
+Outerwear:(recommended)
+Dress:(recommended)
+
+
+
+
+create .jsx component having 3 sections :
+1. body shape analysis
+accept image from user which will be sent to a backend api for analysis
+or accept measurement from user for shoulder,bust,waist,hips which will also be sent to a backend script for processing
+or select from 5 bodyshapes hourglass,pear,apple,inverted triangle,rectangle which will also be sent to a backend script for processing
+provide button called recommend to run an ML model in backend that displays the text
+
+2. seasonal colour analysis
+accept image from user which will be sent to a backend api for analysis
+or accept measurement from user for eye colour,haircolour,skin colour which will also be sent to a backend script for processing
+or select from 4 seasons spring, summer, autumn, winter which will also be sent to a backend script for processing
+provide button called recommend to run an ML model in backend that displays the text
+
+3. occassion based recommendation
+select from 5 occasions formal,casual,party,workwear,streetwear,ethnicwear which will also be sent to a backend script for processing
+provide button called recommend to run an ML model in backend that displays the text
+
+provide a button that would run processing to recommend any 2 or all 3 of the above at the same time
+
+create 2 .jsx components
+1 for UI
+and another for styling
+make sure the styling is also in .jsx
+styling should be dark
+white on black
+aura style(purple accent)
+use tailwind css

@@ -1,0 +1,81 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from sklearn.ensemble import RandomForestClassifier
+import numpy as np
+
+def train_model(df):
+    # Encode categorical variables
+    label_encoders = {}
+    for col in ['Body Shape', 'Clothing Category', 'Clothing Type', 'Occasion']:
+        le = LabelEncoder()
+        df[col] = le.fit_transform(df[col])
+        label_encoders[col] = le
+
+    # Define features and targets for each category
+    X = df[['Body Shape', 'Occasion']]
+    category_models = {}
+    type_models = {}
+
+    for category in ['Tops', 'Bottoms', 'Outerwear', 'Dresses']:
+        df_subset = df[df['Clothing Category'] == label_encoders['Clothing Category'].transform([category])[0]]
+        if df_subset.empty:
+            continue
+
+        y_type = df_subset['Clothing Type']
+        X_train, X_test, y_train, y_test = train_test_split(X.loc[df_subset.index], y_type, test_size=0.2, random_state=42)
+
+        model = RandomForestClassifier(n_estimators=100, random_state=42)
+        model.fit(X_train, y_train)
+
+        type_models[category] = model
+
+    return type_models, label_encoders
+
+def recommend_clothing(body_shape, occasion=None, df=None):
+    if df is None:
+        df = pd.read_csv("MOCK_DATA.csv")
+
+    type_models, label_encoders = train_model(df)
+
+    # Encode user input
+    try:
+        body_shape_encoded = label_encoders['Body Shape'].transform([body_shape])[0]
+    except ValueError:
+        return "Invalid body shape. Please choose a valid option."
+
+    if occasion:
+        try:
+            occasion_encoded = label_encoders['Occasion'].transform([occasion])[0]
+        except ValueError:
+            return "Invalid occasion. Please choose a valid option."
+    else:
+        occasion_encoded = np.bincount(df['Occasion']).argmax()  # Default to most common category
+
+    X_input = pd.DataFrame([[body_shape_encoded, occasion_encoded]], columns=['Body Shape', 'Occasion'])
+
+    # Predict clothing types for each category
+    recommendations = {"Top": None, "Bottom": None, "Outerwear": None, "Dress": None}
+
+    category_mappings = {
+        "Tops": "Top",
+        "Bottoms": "Bottom",
+        "Outerwear": "Outerwear",
+        "Dresses": "Dress"
+    }
+
+    for category, model in type_models.items():
+        type_pred = model.predict(X_input)[0]
+        type_recommendation = label_encoders['Clothing Type'].inverse_transform([type_pred])[0]
+        recommendations[category_mappings[category]] = type_recommendation
+
+    return recommendations
+
+# Example Usage (Predefined Input)
+df = pd.read_csv("MOCK_DATA.csv")
+print(recommend_clothing("Hourglass", "Party", df))
+
+# Interactive Input
+# body_shape_input = input("Enter your body shape: ")
+# occasion_input = input("Enter the occasion (or press Enter to skip): ")
+# print(recommend_clothing(body_shape_input, occasion_input if occasion_input else None, df))

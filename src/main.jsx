@@ -3,7 +3,8 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 
 import App from "./App.jsx";
-import FitRec from "./FitRec.jsx"; // Move this import outside
+import FitRec from "./FitRec.jsx";
+import Sign from "./loginsignup.jsx" // Move this import outside
 
 import "./index.css";
 
@@ -12,7 +13,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     <Router>
       <Routes>
         <Route path="/" element={<App />} />
-        <Route path="/FitRec" element={<FitRec />} /> {/* Add this route */}
+        <Route path="/FitRec" element={<FitRec />} />
+        <Route path="/Sign" element={<Sign />} /> {/* Add this route */}
       </Routes>
     </Router>
   </React.StrictMode>
