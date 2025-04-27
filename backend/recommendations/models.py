@@ -9,3 +9,14 @@ class Recommendation(models.Model):
 
     def __str__(self):
         return f"Recommendation for {self.body_shape} ({self.occasion})"
+
+class SeasonalColourAnalysis(models.Model):
+    eye_color = models.CharField(max_length=50)
+    hair_color = models.CharField(max_length=50)
+    skin_tone = models.CharField(max_length=50)
+    season = models.CharField(max_length=50)
+    complementary_colors = models.JSONField()
+    color_combinations = models.JSONField()
+
+    def __str__(self):
+        return f"Seasonal Analysis: {self.season}"

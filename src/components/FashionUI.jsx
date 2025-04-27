@@ -11,33 +11,34 @@ const FashionUI = () => {
   const [bodyShape, setBodyShape] = useState("");
   const [colorAnalysis, setColorAnalysis] = useState({ eye: "", hair: "", skin: "" });
   const [season, setSeason] = useState("");
+  const [availableSeasons, setAvailableSeasons] = useState([]);
   const [occasion, setOccasion] = useState("");
   const [availableBodyShapes, setAvailableBodyShapes] = useState([]);
   const [availableOccasions, setAvailableOccasions] = useState([]);
   const [recommendations, setRecommendations] = useState(null);
+  const [seasonalRecommendations, setSeasonalRecommendations] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const parallaxRef = useRef(null);
 
-  // Fetch available body shapes and occasions on component mount
+  // Fetch available body shapes, occasions, and seasons on component mount
   useEffect(() => {
     fetchOptions();
   }, []);
 
   const fetchOptions = async () => {
     try {
-      const bodyShapesResponse = await axios.get("http://127.0.0.1:8000/api/body-shapes/");
-      const occasionsResponse = await axios.get("http://127.0.0.1:8000/api/occasions/");
-      
-      setAvailableBodyShapes(bodyShapesResponse.data || []);
-      setAvailableOccasions(occasionsResponse.data || []);
+        const bodyShapesResponse = await axios.get("http://127.0.0.1:8000/api/body-shapes/");
+        setAvailableBodyShapes(bodyShapesResponse.data || []);
+        // Set available seasons
+        setAvailableSeasons(["Spring", "Summer", "Autumn", "Winter"]);
     } catch (error) {
-      console.error("Error fetching options:", error);
-      // Fall back to default values if API fails
-      setAvailableBodyShapes(["Hourglass", "Pear", "Apple", "Inverted Triangle", "Rectangle"]);
-      setAvailableOccasions(["Formal", "Casual", "Party", "Workwear", "Streetwear", "Ethnicwear"]);
+        console.error("Error fetching options:", error);
+        setAvailableBodyShapes(["Hourglass", "Pear", "Apple", "Inverted Triangle", "Rectangle"]);
+        // Set available seasons as fallback
+        setAvailableSeasons(["Spring", "Summer", "Autumn", "Winter"]);
     }
-  };
+};
 
   const handleImageUpload = (event) => setImage(event.target.files[0]);
   const handleMeasurementChange = (e) => setMeasurements({ ...measurements, [e.target.name]: e.target.value });
@@ -104,6 +105,18 @@ const FashionUI = () => {
 
       if (response.data && response.data.season) {
         setSeason(response.data.season);
+        
+        // Fetch seasonal color recommendations immediately upon detection
+        if (response.data.complementary_colors && response.data.color_combinations) {
+          setSeasonalRecommendations({
+            complementary_colors: response.data.complementary_colors,
+            color_combinations: response.data.color_combinations
+          });
+        } else {
+          // If the detect-season endpoint didn't return complete information, fetch it separately
+          fetchSeasonalRecommendations(response.data.season);
+        }
+        
         alert(`Detected season: ${response.data.season}`);
       }
     } catch (error) {
@@ -113,6 +126,22 @@ const FashionUI = () => {
       setLoading(false);
     }
   };
+
+  const fetchSeasonalRecommendations = async (season) => {
+    try {
+        const response = await axios.post("http://127.0.0.1:8000/api/season-recommendations/", { season });
+        setSeasonalRecommendations(response.data);
+    } catch (error) {
+        console.error("Error fetching seasonal recommendations:", error);
+    }
+};
+
+  // When season changes manually, fetch recommendations
+  useEffect(() => {
+    if (season) {
+      fetchSeasonalRecommendations(season);
+    }
+  }, [season]);
 
   const handleRecommend = async (type) => {
     if (!bodyShape) {
@@ -134,6 +163,11 @@ const FashionUI = () => {
       if ((type === "occasion" || type === "all") && occasion) {
         payload.occasion = occasion;
       }
+
+      // Add season if it's selected and we're doing seasonal or all recommendations
+      if ((type === "seasonal color" || type === "all") && season) {
+        payload.season = season;
+      }
       
       // For debugging only
       console.log("Sending request to backend:", payload);
@@ -146,12 +180,23 @@ const FashionUI = () => {
       
       // Process response
       if (response.data && response.data.recommendations) {
-        // The response may come in different formats depending on your backend
-        // Make sure it matches what your component expects
-        setRecommendations(response.data.recommendations);
+        // Merge seasonal recommendations if they exist
+        let finalRecs = { ...response.data.recommendations };
+        
+        // If it's a season-specific recommendation and we have seasonal data
+        if ((type === "seasonal color" || type === "all") && seasonalRecommendations) {
+          if (seasonalRecommendations.complementary_colors) {
+            finalRecs["Complementary Colors"] = seasonalRecommendations.complementary_colors.join(", ");
+          }
+          if (seasonalRecommendations.color_combinations) {
+            finalRecs["Color Combinations"] = seasonalRecommendations.color_combinations.join(", ");
+          }
+        }
+        
+        setRecommendations(finalRecs);
         
         // Log the data that will be rendered
-        console.log("Setting recommendations:", response.data.recommendations);
+        console.log("Setting recommendations:", finalRecs);
       } else if (response.data && response.data.error) {
         setError(`Error: ${response.data.error}`);
         alert(`Error: ${response.data.error}`);
@@ -198,6 +243,10 @@ const FashionUI = () => {
   useEffect(() => {
     console.log("Recommendations state updated:", recommendations);
   }, [recommendations]);
+
+  useEffect(() => {
+    console.log("Seasonal recommendations updated:", seasonalRecommendations);
+  }, [seasonalRecommendations]);
 
   return (
     <Section
@@ -294,10 +343,14 @@ const FashionUI = () => {
                       className="flex-1 input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white"
                     >
                       <option value="">Select Season</option>
-                      <option value="Spring">Spring</option>
-                      <option value="Summer">Summer</option>
-                      <option value="Autumn">Autumn</option>
-                      <option value="Winter">Winter</option>
+                      {availableSeasons.length > 0 
+                        ? availableSeasons.map((s, idx) => (
+                            <option key={idx} value={s}>{s}</option>
+                          ))
+                        : ["Spring", "Summer", "Autumn", "Winter"].map((s, idx) => (
+                            <option key={idx} value={s}>{s}</option>
+                          ))
+                      }
                     </select>
                   </div>
                   <button 
@@ -346,26 +399,69 @@ const FashionUI = () => {
                 {loading ? "Processing..." : "Get Full Recommendation"}
               </button>
 
-              {/* Recommendations Display - Debug state visible */}
-              {recommendations === null ? (
-                <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500 rounded-lg">
-                  No recommendations yet. Select options and click a recommend button.
+              {/* Seasonal Color Recommendations Display */}
+              {seasonalRecommendations && season && (
+                <div className="mt-6 p-6 border border-blue-500 rounded-lg shadow-lg backdrop-blur-sm bg-n-8/40">
+                  <h2 className="text-2xl mb-4">{season} Color Palette</h2>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Complementary Colors */}
+                    <div className="p-4 border border-purple-300 rounded-lg">
+                      <h3 className="text-xl font-semibold mb-2">Complementary Colors</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {seasonalRecommendations.complementary_colors && 
+                          seasonalRecommendations.complementary_colors.map((color, idx) => (
+                            <div key={idx} className="flex flex-col items-center">
+                              <div 
+                                className="w-12 h-12 rounded-full border border-white"
+                                style={{
+                                  background: color.toLowerCase().replace(' ', ''),
+                                  backgroundImage: `linear-gradient(45deg, ${color.toLowerCase().replace(' ', '')}, ${color.toLowerCase().replace(' ', '')}88)`
+                                }}
+                              ></div>
+                              <span className="text-xs mt-1">{color}</span>
+                            </div>
+                          ))
+                        }
+                      </div>
+                    </div>
+                    
+                    {/* Color Combinations */}
+                    <div className="p-4 border border-purple-300 rounded-lg">
+                      <h3 className="text-xl font-semibold mb-2">Color Combinations</h3>
+                      <ul className="list-disc pl-5">
+                        {seasonalRecommendations.color_combinations && 
+                          seasonalRecommendations.color_combinations.map((combo, idx) => (
+                            <li key={idx}>{combo}</li>
+                          ))
+                        }
+                      </ul>
+                    </div>
+                  </div>
                 </div>
-              ) : Object.keys(recommendations).length === 0 ? (
-                <div className="mt-6 p-4 bg-yellow-500/20 border border-yellow-500 rounded-lg">
-                  Recommendations received but empty. Try different options.
-                </div>
-              ) : (
+              )}
+
+              {/* General Recommendations Display */}
+              {recommendations && (
                 <div className="mt-6 p-6 border border-green-500 rounded-lg shadow-lg backdrop-blur-sm bg-n-8/40">
                   <h2 className="text-2xl mb-4">Your Personalized Recommendations</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {Object.entries(recommendations).map(([category, item], idx) => (
-                      <div key={idx} className="p-4 border border-purple-300 rounded-lg">
-                        <h3 className="text-xl font-semibold mb-2">{category}</h3>
-                        <p>{item}</p>
-                      </div>
+                      // Skip if these are displayed in seasonal section
+                      category !== "Complementary Colors" && category !== "Color Combinations" ? (
+                        <div key={idx} className="p-4 border border-purple-300 rounded-lg">
+                          <h3 className="text-xl font-semibold mb-2">{category}</h3>
+                          <p>{item}</p>
+                        </div>
+                      ) : null
                     ))}
                   </div>
+                </div>
+              )}
+              
+              {/* Message when no recommendations yet */}
+              {!recommendations && !seasonalRecommendations && (
+                <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500 rounded-lg">
+                  No recommendations yet. Select options and click a recommend button.
                 </div>
               )}
               
@@ -378,8 +474,12 @@ const FashionUI = () => {
                     <p>Occasion: {occasion || 'None'}</p>
                     <p>Season: {season || 'None'}</p>
                     <p>Has Recommendations: {recommendations ? 'Yes' : 'No'}</p>
+                    <p>Has Seasonal Recommendations: {seasonalRecommendations ? 'Yes' : 'No'}</p>
                     {recommendations && (
                       <pre>{JSON.stringify(recommendations, null, 2)}</pre>
+                    )}
+                    {seasonalRecommendations && (
+                      <pre>{JSON.stringify(seasonalRecommendations, null, 2)}</pre>
                     )}
                   </div>
                 </div>

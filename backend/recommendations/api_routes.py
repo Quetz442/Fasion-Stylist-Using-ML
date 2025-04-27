@@ -3,13 +3,18 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional, Dict, List, Any
 from bodyshape import ClothingRecommender
+from seasonalcolour import SeasonalColorRecommender  # Import the seasonal color logic
 import traceback
 import json
 
+# Import the SeasonalColorRecommender
+from seasonalcolour import SeasonalColorRecommender
+
 router = APIRouter()
 
-# Initialize the recommender
+# Initialize the recommenders
 recommender = ClothingRecommender('clothing_data.csv')  # Update with your actual data path
+season_recommender = SeasonalColorRecommender('seasonalcolour.csv')  # Path to seasonal color data
 
 class RecommendationRequest(BaseModel):
     body_shape: str
@@ -20,6 +25,14 @@ class RecommendationResponse(BaseModel):
     success: bool
     recommendations: Dict[str, str] = {}
     error: Optional[str] = None
+
+class SeasonRequest(BaseModel):
+    season: str
+
+class SeasonResponse(BaseModel):
+    season: str
+    complementary_colors: List[str]
+    color_combinations: List[str]
 
 @router.get("/body-shapes/", response_model=List[str])
 async def get_body_shapes():
@@ -38,6 +51,18 @@ async def get_occasions():
     except Exception as e:
         print(f"Error getting occasions: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/seasons/", response_model=List[str])
+async def get_seasons():
+    """Return all available seasons from the recommender."""
+    try:
+        # Using the original dataframe from the recommender
+        seasons = sorted(season_recommender.original_df['Seasonal Colour'].unique().tolist())
+        return seasons
+    except Exception as e:
+        print(f"Error getting seasons: {e}")
+        # Return default seasons if there's an error
+        return ["Spring", "Summer", "Autumn", "Winter"]
 
 @router.post("/detect-body-shape/")
 async def detect_body_shape(
@@ -106,15 +131,53 @@ async def detect_season(
         
         # Image processing would go here if implemented
         
+        # Get recommendations for the detected season
+        if season != "Unknown":
+            season_recs = season_recommender.get_season_recommendations(season)
+            if "error" not in season_recs:
+                return {
+                    "season": season,
+                    "complementary_colors": season_recs["complementary_colors"],
+                    "color_combinations": season_recs["color_combinations"]
+                }
+            else:
+                print(f"Season recommendation error: {season_recs['error']}")
+        
+        # Return just the season if we couldn't get recommendations
         return {"season": season}
     except Exception as e:
         print(f"Error in detect_season: {e}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/season-recommendations/", response_model=SeasonResponse)
+async def get_season_recommendations(request: Request):
+    """Get color recommendations for a specified season."""
+    try:
+        # Get the request body as JSON
+        body = await request.json()
+        season = body.get("season")
+        
+        if not season:
+            raise HTTPException(status_code=400, detail="Season parameter is required")
+        
+        # Get recommendations for the season
+        recommendations = season_recommender.get_season_recommendations(season)
+        
+        if "error" in recommendations:
+            raise HTTPException(status_code=400, detail=recommendations["error"])
+        
+        return recommendations
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON format")
+    except Exception as e:
+        print(f"Error in get_season_recommendations: {e}")
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/recommend/", response_model=RecommendationResponse)
 async def get_recommendations(request: Request):
-    """Generate clothing recommendations based on body shape and optional occasion."""
+    """Generate clothing recommendations based on body shape, occasion, and season."""
     try:
         # Get the request body as JSON
         body = await request.json()
@@ -123,13 +186,37 @@ async def get_recommendations(request: Request):
         # Extract parameters
         body_shape = body.get("body_shape")
         occasion = body.get("occasion")
+        season = body.get("season")  # New parameter for seasonal color
         
         # Validate body_shape
         if not body_shape:
             return {"success": False, "error": "Body shape is required"}
         
-        # Get recommendations
+        # Get base recommendations
         result = recommender.recommend(body_shape, occasion)
+        
+        # Add seasonal color recommendations if season is provided
+        if season and result.get("success"):
+            try:
+                season_recs = season_recommender.get_season_recommendations(season)
+                if "error" not in season_recs:
+                    # Add complementary colors
+                    if season_recs.get("complementary_colors"):
+                        result["recommendations"]["Complementary Colors"] = ", ".join(
+                            season_recs["complementary_colors"][:3]  # Limit to top 3 colors
+                        )
+                    
+                    # Add color combinations
+                    if season_recs.get("color_combinations"):
+                        result["recommendations"]["Color Combinations"] = ", ".join(
+                            season_recs["color_combinations"][:2]  # Limit to top 2 combinations
+                        )
+                else:
+                    print(f"Error getting season recommendations: {season_recs['error']}")
+            except Exception as se:
+                print(f"Error processing seasonal recommendations: {se}")
+                # Continue with base recommendations if seasonal fails
+        
         return result
     except json.JSONDecodeError:
         print("Invalid JSON received")
