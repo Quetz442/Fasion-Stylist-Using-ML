@@ -13,6 +13,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
+import requests
+
 # Import your model-based recommender
 from .bodyshape import ClothingRecommender
 from .seasonalcolour import SeasonalColorRecommender  # Import the seasonal color logic
@@ -22,6 +24,31 @@ recommender = ClothingRecommender(os.path.join(os.path.dirname(__file__), "MOCK_
 
 # Configure the Gemini API key
 genai.configure(api_key=settings.GEMINI_API_KEY)
+
+PEXELS_API_KEY = 'f5jQSSvZCE6oWJCONTu5yye53vA2GoWsEl9evWqkhmGla402F7j1cd22'
+
+def search_pexels_image(query):
+    """Search for an image on Pexels based on a query."""
+    url = "https://api.pexels.com/v1/search"
+    headers = {
+        "Authorization": PEXELS_API_KEY
+    }
+    params = {
+        "query": query,
+        "per_page": 1  # Only need 1 image per recommendation
+    }
+    response = requests.get(url, headers=headers, params=params)
+    
+    if response.status_code == 200:
+        data = response.json()
+        photos = data.get('photos', [])
+        if photos:
+            return photos[0]['src']['medium']  # Return first image URL
+        else:
+            return None
+    else:
+        print("Error:", response.status_code, response.text)
+        return None
 
 class RecommendationView(APIView):
     def post(self, request):
@@ -554,6 +581,49 @@ Choose EXACTLY ONE season: Winter, Summer, Autumn, or Spring."""
         error_details = traceback.format_exc()
         return JsonResponse({
             'error': f'Image analysis failed: {str(e)}',
+            'details': error_details
+        }, status=500)
+
+@csrf_exempt
+@require_POST
+def fetch_recommendation_images(request):
+    """Fetch images for a list of fashion recommendations."""
+    try:
+        # Get the recommendations from the request body
+        raw_recommendations = request.POST.getlist('recommendations[]')
+        
+        # Process and flatten the recommendations
+        recommendations = []
+        for item in raw_recommendations:
+            # Split each item by comma and add to our final list
+            if ',' in item:
+                recommendations.extend([part.strip() for part in item.split(',')])
+            else:
+                recommendations.append(item.strip())
+        
+        # Add debug information
+
+        
+        if not recommendations:
+            return JsonResponse({
+                'error': 'No recommendations provided',
+            }, status=400)
+        
+        # Fetch images for each recommendation
+        images = {}
+        for item in recommendations:
+            if item:  # Skip empty items
+                image_url = search_pexels_image(item)
+                images[item] = image_url if image_url else "No image found"
+        
+        return JsonResponse({
+            'images': images,
+        }, status=200)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        return JsonResponse({
+            'error': f'Failed to fetch images: {str(e)}',
             'details': error_details
         }, status=500)
 

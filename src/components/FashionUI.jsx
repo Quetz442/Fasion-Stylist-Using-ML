@@ -23,6 +23,7 @@ const FashionUI = () => {
   const [colorAnalysisImage, setColorAnalysisImage] = useState(null);
   const [colorAnalysisImagePreview, setColorAnalysisImagePreview] = useState(null);
   const parallaxRef = useRef(null);
+  const [recommendationImages, setRecommendationImages] = useState({});
 
   // Fetch available body shapes, occasions, and seasons on component mount
   useEffect(() => {
@@ -202,6 +203,7 @@ const FashionUI = () => {
   }, [season]);
 
   const handleRecommend = async (type) => {
+    setRecommendationImages({}); // Clear previous recommendation images
     let currentBodyShape = bodyShape;
     
     // If no body shape is selected, try to detect it from the image
@@ -280,6 +282,7 @@ const FashionUI = () => {
           }
           
           setRecommendations(finalRecs);
+          fetchRecommendationImages(finalRecs);
         } else if (response.data && response.data.error) {
           setError(`Error: ${response.data.error}`);
           alert(`Error: ${response.data.error}`);
@@ -308,6 +311,7 @@ const FashionUI = () => {
           }
           
           setRecommendations(finalRecs);
+          fetchRecommendationImages(finalRecs);
         } else if (response.data && response.data.error) {
           setError(`Error: ${response.data.error}`);
           alert(`Error: ${response.data.error}`);
@@ -344,6 +348,34 @@ const FashionUI = () => {
       alert(errorMessage);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRecommendationImages = async (recommendations) => {
+    if (!recommendations) return;
+    
+    try {
+      const formData = new FormData();
+      
+      // Add all recommendations to form data
+      Object.values(recommendations).forEach(rec => {
+        if (rec && typeof rec === 'string') {
+          formData.append('recommendations[]', rec);
+        }
+      });
+      
+      const response = await axios.post(
+        "http://127.0.0.1:8000/api/fetch-recommendation-images/", 
+        formData
+      );
+      
+      if (response.data && response.data.images) {
+        setRecommendationImages(response.data.images);
+      } else {
+        console.error("No images found in response");
+      }
+    } catch (error) {
+      console.error("Error fetching recommendation images:", error);
     }
   };
 
@@ -608,6 +640,31 @@ const FashionUI = () => {
                 </div>
               )}
               
+              {/* Recommendation Images Display */}
+
+{Object.keys(recommendationImages).length > 0 && (
+  <div className="mt-6 p-6 border border-pink-500 rounded-lg shadow-lg backdrop-blur-sm bg-n-8/40">
+    <h2 className="text-2xl mb-4">Fashion Inspiration</h2>
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {Object.entries(recommendationImages).map(([item, imageUrl], idx) => (
+        imageUrl !== "No image found" ? (
+          <div key={idx} className="p-2 border border-purple-300 rounded-lg">
+            <p className="text-sm font-semibold mb-2 truncate">{item}</p>
+            <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-lg">
+              <img 
+                src={imageUrl} 
+                alt={item} 
+                className="w-full h-48 object-cover"
+                onError={(e) => {e.target.onerror = null; e.target.src = "/api/placeholder/200/200"}}
+              />
+            </div>
+          </div>
+        ) : null
+      ))}
+    </div>
+  </div>
+)}
+
               {/* Message when no recommendations yet */}
               {!recommendations && !seasonalRecommendations && (
                 <div className="mt-6 p-4 bg-blue-500/20 border border-blue-500 rounded-lg">
