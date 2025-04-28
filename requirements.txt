@@ -1,5 +1,2 @@
-Django>=5.0,<6.0
 djangorestframework
-django-cors-headers
-pandas
-scikit-learn
+djangorestframework-simplejwt

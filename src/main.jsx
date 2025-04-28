@@ -4,18 +4,32 @@ import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
 
 import App from "./App.jsx";
 import FitRec from "./FitRec.jsx";
-import Sign from "./loginsignup.jsx" // Move this import outside
+import Sign from "./loginsignup.jsx"; // Login/Signup page
+import RequireAuth from "./components/RequireAuth.jsx"; // Import RequireAuth HOC
+import { AuthProvider } from "./components/AuthContext"; // Import AuthProvider
 
 import "./index.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <Router>
-      <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/FitRec" element={<FitRec />} />
-        <Route path="/Sign" element={<Sign />} /> {/* Add this route */}
-      </Routes>
-    </Router>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<App />} />
+          <Route path="/Sign" element={<Sign />} />
+
+          {/* Protected Route */}
+          <Route
+            path="/FitRec"
+            element={
+              <RequireAuth>
+                <FitRec />
+              </RequireAuth>
+            }
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
   </React.StrictMode>
 );

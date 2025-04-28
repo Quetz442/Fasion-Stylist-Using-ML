@@ -7,7 +7,14 @@ from .views import (
     SeasonRecommendationsView,
     detect_body_shape_image,
     analyze_seasonal_color,
-    fetch_recommendation_images  # Import the new function
+    fetch_recommendation_images,  # Import the new function
+    signup,
+    jwt_login_view,
+    validate_user
+)
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
 )
 
 urlpatterns = [
@@ -19,4 +26,9 @@ urlpatterns = [
     path("detect-body-shape/", detect_body_shape_image, name="detect-body-shape"),
     path("analyze-seasonal-color/", analyze_seasonal_color, name="analyze-seasonal-color"),
     path("fetch-recommendation-images/", fetch_recommendation_images, name="fetch-recommendation-images"),  # Add the new route
+    path("signup/", signup, name="signup"),
+    path("login/", jwt_login_view, name="login"),
+    path("validate-user/", validate_user, name="validate-user"),
+    path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

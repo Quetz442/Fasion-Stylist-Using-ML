@@ -1,180 +1,261 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState } from "react";
+import axios from "axios";
 import Button from "./Button";
 import Section from "./Section";
+import { BackgroundCircles, Gradient } from "./design/Hero";
+import { curve } from "../assets";
+import { useAuth } from "./AuthContext";
+import { useNavigate } from "react-router-dom";
+import API, { setAccessToken } from "../api"; // Import the Axios instance and setAccessToken
+
+axios.defaults.withCredentials = true;
 
 const Auth = () => {
   const [isSignUpMode, setIsSignUpMode] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [animationComplete, setAnimationComplete] = useState(false);
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const parallaxRef = useRef(null);
+  const { setIsAuthenticated } = useAuth();
+  const navigate = useNavigate(); // Initialize navigate
 
   const toggleMode = () => {
-    setIsAnimating(true);
-    
-    // Allow animation to start before changing mode
-    setTimeout(() => {
-      setIsSignUpMode(!isSignUpMode);
-    }, 300);
-    
-    // Reset animation state after completion
-    setTimeout(() => {
-      setAnimationComplete(true);
-      setTimeout(() => {
-        setIsAnimating(false);
-        setAnimationComplete(false);
-      }, 1000);
-    }, 1000);
+    setIsSignUpMode(!isSignUpMode);
+    setError("");
+    setSuccess("");
+  };
+
+  const handleSignup = async (e) => {
+    e.preventDefault(); // Prevent default form submission behavior
+    try {
+      console.log("Sending signup request:", { username, email, password }); // Debugging
+      const response = await API.post("signup/", { username, email, password });
+      console.log("Signup response:", response.data); // Debugging
+      setSuccess(response.data.message);
+      setError("");
+    } catch (err) {
+      console.error("Signup error:", err.response?.data || err.message); // Debugging
+      setError(err.response?.data?.error || "Signup failed.");
+      setSuccess("");
+    }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault(); // Prevent default form submission behavior
+    try {
+      const response = await API.post("login/", { username, password });
+      console.log("Login response:", response.data); // Debugging
+      setSuccess(response.data.message);
+      setError("");
+      // Set the access token for authenticated requests
+      setAccessToken(response.data.access);
+      setIsAuthenticated(true); // Update global authentication state
+      navigate("/FitRec"); // Navigate to FitRec after login
+    } catch (err) {
+      console.error("Login error:", err.response?.data || err.message); // Debugging
+      setError(err.response?.data?.error || "Login failed.");
+      setSuccess("");
+    }
+  };
+
+  const validateUser = async () => {
+    try {
+      console.log("Validating user session..."); // Debugging
+      const response = await API.get("validate-user/");
+      console.log("Validation response:", response.data); // Debugging
+      if (response.data.authenticated) {
+        setIsAuthenticated(true);
+      } else {
+        navigate("/Sign"); // Redirect to the login/signup page if not authenticated
+      }
+    } catch (err) {
+      console.error("Validation error:", err.response?.data || err.message); // Debugging
+      navigate("/Sign"); // Redirect to the login/signup page if an error occurs
+    }
   };
 
   return (
     <Section
-      className="min-h-screen overflow-hidden"
+      className="pt-[12rem] -mt-[5.25rem]"
+      crosses
+      crossesOffset="lg:translate-y-[5.25rem]"
+      customPaddings
       id="auth"
     >
-      <div className={`auth-container relative w-full min-h-screen bg-black transition-all duration-1000 ease-in-out ${isSignUpMode ? 'sign-up-mode' : ''}`}>
-        {/* Curved Background Element */}
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-purple-400 transition-all duration-1000 ease-in-out" style={{
-          clipPath: isSignUpMode ? 
-            'polygon(0 0, 0% 100%, 100% 100%)' : 
-            'polygon(0 0, 100% 0, 100% 100%, 35% 100%, 0 0)'
-        }}></div>
-        
-        {/* Flying Animation Circle */}
-        <div 
-          className={`absolute rounded-full bg-purple-600 transition-all duration-1000 ease-in-out ${isAnimating ? 'opacity-100 scale-150' : 'opacity-0 scale-0'}`}
-          style={{
-            width: '300px',
-            height: '300px',
-            top: '50%',
-            left: isSignUpMode ? '25%' : '75%',
-            transform: `translate(-50%, -50%) ${animationComplete ? 'scale(50)' : ''}`,
-            zIndex: 5
-          }}
-        ></div>
-        
-        {/* Content Container */}
-        <div className="container mx-auto relative z-10 h-full flex">
-          {/* Left Side - Sign Up Form / Information */}
-          <div className={`w-1/2 h-full flex flex-col justify-center items-center text-center transition-all duration-700 ease-in-out ${isSignUpMode ? 'opacity-100' : 'opacity-100'}`}>
-            {isSignUpMode ? (
-              // Sign Up Form
-              <div className="w-full max-w-md px-8 py-12 transition-all duration-500 relative z-20">
-                <h1 className="text-3xl font-bold text-white mb-2">
-                  StyleAura
-                  <div className="h-1 w-32 bg-white mx-auto mt-1"></div>
-                </h1>
-                <p className="text-white/80 mb-8">Create your account</p>
-                
-                <div className="space-y-4 mb-6">
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-3 rounded-full bg-white/90 text-black placeholder:text-gray-500 focus:outline-none"
-                    placeholder="Username"
-                  />
-                  <input 
-                    type="email" 
-                    className="w-full px-4 py-3 rounded-full bg-white/90 text-black placeholder:text-gray-500 focus:outline-none"
-                    placeholder="Email"
-                  />
-                  <input 
-                    type="password" 
-                    className="w-full px-4 py-3 rounded-full bg-white/90 text-black placeholder:text-gray-500 focus:outline-none"
-                    placeholder="Password"
-                  />
-                </div>
-                
-                <button className="bg-white text-purple-600 font-bold uppercase text-sm px-8 py-2 rounded-full hover:bg-opacity-90 transition-colors duration-300 mb-6">
-                  Sign Up
-                </button>
-                
-                <p className="text-white/80 mb-4">OR sign up with social channels</p>
-                
-                <div className="flex justify-center space-x-4">
-                  <a href="#" className="w-10 h-10 rounded-full border border-white/50 flex items-center justify-center text-white hover:bg-white/10 transition-colors duration-300">
-                    <i className="fab fa-facebook-f"></i>
-                  </a>
-                  <a href="#" className="w-10 h-10 rounded-full border border-white/50 flex items-center justify-center text-white hover:bg-white/10 transition-colors duration-300">
-                    <i className="fab fa-twitter"></i>
-                  </a>
-                  <a href="#" className="w-10 h-10 rounded-full border border-white/50 flex items-center justify-center text-white hover:bg-white/10 transition-colors duration-300">
-                    <i className="fab fa-google"></i>
-                  </a>
-                </div>
-              </div>
-            ) : (
-              // Left Side Information (when in login mode)
-              <div className="w-full max-w-lg px-8 py-12 transition-all duration-500 relative z-20">
-                <h2 className="text-3xl font-bold text-white mb-6">New user?</h2>
-                <p className="text-white text-lg mb-8 max-w-md mx-auto">
-                  Join our growing community of style enthusiasts and discover a world of beauty and fashion at your fingertips.
-                </p>
-                <button 
-                  onClick={toggleMode}
-                  className="border-2 border-white text-white font-semibold py-2 px-8 rounded-full hover:bg-white/10 transition-colors duration-300"
+      <div className="container relative" ref={parallaxRef}>
+        <div className="relative z-1 max-w-[62rem] mx-auto text-center mb-[3.875rem] md:mb-20 lg:mb-[6.25rem]">
+          <h1 className="h1 mb-6">
+            Welcome to {` `}
+            <span className="inline-block relative">
+              StyleAura{" "}
+              <img
+                src={curve}
+                className="absolute top-full left-0 w-full xl:-mt-2"
+                width={624}
+                height={28}
+                alt="Curve"
+              />
+            </span>
+          </h1>
+          <p className="body-1 max-w-3xl mx-auto mb-6 text-n-2 lg:mb-8">
+            {isSignUpMode
+              ? "Create an account to unlock your style journey"
+              : "Sign in to continue your style journey"}
+          </p>
+        </div>
+
+        <div className="relative max-w-[62rem] mx-auto md:max-w-5xl xl:mb-24">
+          <div className="relative z-1 p-0.5 rounded-2xl bg-conic-gradient overflow-hidden">
+            <div className="relative bg-n-8 rounded-[1rem] min-h-[30rem]">
+              <div className="h-[1.4rem] bg-n-10 rounded-t-[0.9rem]" />
+
+              {/* Content Container */}
+              <div className="flex flex-col md:flex-row w-full h-full">
+                {/* Left Side - Sign Up Form / Information */}
+                <div
+                  className={`w-full md:w-1/2 h-full flex flex-col justify-center items-center text-center py-8 px-4 md:px-8 transition-all duration-300 ease-in-out`}
                 >
-                  Sign Up
-                </button>
-              </div>
-            )}
-          </div>
-          
-          {/* Right Side - Login Form / Information */}
-          <div className={`w-1/2 h-full flex flex-col justify-center items-center text-center transition-all duration-700 ease-in-out ${isSignUpMode ? 'opacity-100' : 'opacity-100'}`}>
-            {!isSignUpMode ? (
-              // Login Form
-              <div className="w-full max-w-md px-8 py-12 transition-all duration-500 relative z-20">
-                <h1 className="text-3xl font-bold text-white mb-2">
-                  StyleAura
-                  <div className="h-1 w-32 bg-white mx-auto mt-1"></div>
-                </h1>
-                <p className="text-white/80 mb-8">Welcome back</p>
-                
-                <div className="space-y-4 mb-6">
-                  <input 
-                    type="text" 
-                    className="w-full px-4 py-3 rounded-full bg-white/90 text-black placeholder:text-gray-500 focus:outline-none"
-                    placeholder="Username"
-                  />
-                  <input 
-                    type="password" 
-                    className="w-full px-4 py-3 rounded-full bg-white/90 text-black placeholder:text-gray-500 focus:outline-none"
-                    placeholder="Password"
-                  />
+                  {isSignUpMode ? (
+                    // Sign Up Form
+                    <form onSubmit={handleSignup} className="w-full max-w-md transition-all duration-500 relative z-20">
+                      <h2 className="text-2xl font-bold text-white mb-6">
+                        Create Account
+                      </h2>
+                      {error && <p className="text-red-500">{error}</p>}
+                      {success && <p className="text-green-500">{success}</p>}
+                      <div className="space-y-4 mb-6">
+                        {/* Username Input */}
+                        <input
+                          type="text"
+                          className="w-full px-4 py-3 rounded-full bg-n-6 text-white placeholder:text-n-3 focus:outline-none border border-n-5 focus:border-color-1"
+                          placeholder="Username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          required
+                          autoComplete="username" // Add autocomplete attribute
+                        />
+
+                        {/* Email Input (for Signup) */}
+                        {isSignUpMode && (
+                          <input
+                            type="email"
+                            className="w-full px-4 py-3 rounded-full bg-n-6 text-white placeholder:text-n-3 focus:outline-none border border-n-5 focus:border-color-1"
+                            placeholder="Email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            required
+                            autoComplete="email" // Add autocomplete attribute
+                          />
+                        )}
+
+                        {/* Password Input */}
+                        <input
+                          type="password"
+                          className="w-full px-4 py-3 rounded-full bg-n-6 text-white placeholder:text-n-3 focus:outline-none border border-n-5 focus:border-color-1"
+                          placeholder="Password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          autoComplete={isSignUpMode ? "new-password" : "current-password"} // Add autocomplete attribute
+                        />
+                      </div>
+
+                      <Button white className="mb-2" type="submit">
+                        Sign Up
+                      </Button>
+                    </form>
+                  ) : (
+                    // Left Side Information (when in login mode)
+                    <div className="w-full max-w-lg transition-all duration-500 relative z-20">
+                      <h2 className="text-2xl font-bold text-white mb-6">
+                        New to StyleAura?
+                      </h2>
+                      <p className="text-n-3 text-lg mb-8 max-w-md mx-auto">
+                        Join our growing community of style enthusiasts and
+                        discover a world of beauty and fashion at your
+                        fingertips.
+                      </p>
+                      <Button
+                        onClick={toggleMode}
+                        className="bg-transparent border border-n-1"
+                      >
+                        Sign Up
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                
-                <button className="bg-white text-purple-600 font-bold uppercase text-sm px-8 py-2 rounded-full hover:bg-opacity-90 transition-colors duration-300 mb-6">
-                  Login
-                </button>
-                
-                <p className="text-white/80 mb-4">OR login with social channels</p>
-                
-                <div className="flex justify-center space-x-4">
-                  <a href="#" className="w-10 h-10 rounded-full border border-white/50 flex items-center justify-center text-white hover:bg-white/10 transition-colors duration-300">
-                    <i className="fab fa-facebook-f"></i>
-                  </a>
-                  <a href="#" className="w-10 h-10 rounded-full border border-white/50 flex items-center justify-center text-white hover:bg-white/10 transition-colors duration-300">
-                    <i className="fab fa-twitter"></i>
-                  </a>
-                  <a href="#" className="w-10 h-10 rounded-full border border-white/50 flex items-center justify-center text-white hover:bg-white/10 transition-colors duration-300">
-                    <i className="fab fa-google"></i>
-                  </a>
-                </div>
-              </div>
-            ) : (
-              // Right Side Information (when in signup mode)
-              <div className="w-full max-w-lg px-8 py-12 transition-all duration-500 relative z-20">
-                <h2 className="text-3xl font-bold text-white mb-6">One of us?</h2>
-                <p className="text-white text-lg mb-8 max-w-md mx-auto">
-                  Already part of our StyleAura family? Sign in to access your personalized recommendations and continue your journey.
-                </p>
-                <button 
-                  onClick={toggleMode}
-                  className="border-2 border-white text-white font-semibold py-2 px-8 rounded-full hover:bg-white/10 transition-colors duration-300"
+
+                {/* Right Side - Login Form / Information */}
+                <div
+                  className={`w-full md:w-1/2 h-full flex flex-col justify-center items-center text-center py-8 px-4 md:px-8 transition-all duration-300 ease-in-out`}
                 >
-                  Sign In
-                </button>
+                  {!isSignUpMode ? (
+                    // Login Form
+                    <form onSubmit={handleLogin} className="w-full max-w-md transition-all duration-500 relative z-20">
+                      <h2 className="text-2xl font-bold text-white mb-6">
+                        Welcome Back
+                      </h2>
+                      {error && <p className="text-red-500">{error}</p>}
+                      {success && <p className="text-green-500">{success}</p>}
+                      <div className="space-y-4 mb-6">
+                        {/* Username Input */}
+                        <input
+                          type="text"
+                          className="w-full px-4 py-3 rounded-full bg-n-6 text-white placeholder:text-n-3 focus:outline-none border border-n-5 focus:border-color-1"
+                          placeholder="Username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          required
+                          autoComplete="username" // Add autocomplete attribute
+                        />
+
+                        {/* Password Input */}
+                        <input
+                          type="password"
+                          className="w-full px-4 py-3 rounded-full bg-n-6 text-white placeholder:text-n-3 focus:outline-none border border-n-5 focus:border-color-1"
+                          placeholder="Password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          autoComplete={isSignUpMode ? "new-password" : "current-password"} // Add autocomplete attribute
+                        />
+                      </div>
+
+                      <Button white className="mb-2" type="submit">
+                        Sign In
+                      </Button>
+                    </form>
+                  ) : (
+                    // Right Side Information (when in signup mode)
+                    <div className="w-full max-w-lg transition-all duration-500 relative z-20">
+                      <h2 className="text-2xl font-bold text-white mb-6">
+                        Already a Member?
+                      </h2>
+                      <p className="text-n-3 text-lg mb-8 max-w-md mx-auto">
+                        Already part of our StyleAura family? Sign in to access
+                        your personalized recommendations and continue your
+                        journey.
+                      </p>
+                      <Button
+                        onClick={toggleMode}
+                        className="bg-transparent border border-n-1"
+                      >
+                        Sign In
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
+
+            {/* Background Gradient effect */}
+            <Gradient />
           </div>
+
+          {/* Background circles effect from Hero component */}
+          <BackgroundCircles />
         </div>
       </div>
     </Section>

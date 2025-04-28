@@ -39,9 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',  # Added for DRF
     'api',  # Added the api app
     'recommendations',  # Added the recommendations app
-    'corsheaders',
+    'corsheaders',  # Add this for CORS support
 ]
 
 
@@ -131,7 +132,34 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Allow credentials for cross-origin requests
+CORS_ALLOW_CREDENTIALS = True
+
+# Specify allowed origins
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:5173",  # Frontend URL
+    "http://localhost:3000",  # Another possible frontend URL
     "http://127.0.0.1:5173",
 ]
+
+# Security settings for development only
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+
+SESSION_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = 'None'
+
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
+# Set SESSION_COOKIE_DOMAIN to allow cookie sharing between localhost and 127.0.0.1
+SESSION_COOKIE_DOMAIN = None  # Use None to allow cookies on localhost and 127.0.0.1
+
+# Note: For production, set SESSION_COOKIE_DOMAIN to your domain name
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+

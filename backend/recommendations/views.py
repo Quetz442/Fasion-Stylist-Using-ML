@@ -12,6 +12,9 @@ from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login
+import json
 
 import requests
 
@@ -596,7 +599,7 @@ def fetch_recommendation_images(request):
         recommendations = []
         for item in raw_recommendations:
             # Split each item by comma and add to our final list
-            if ',' in item:
+            if (',' in item):
                 recommendations.extend([part.strip() for part in item.split(',')])
             else:
                 recommendations.append(item.strip())
@@ -626,4 +629,67 @@ def fetch_recommendation_images(request):
             'error': f'Failed to fetch images: {str(e)}',
             'details': error_details
         }, status=500)
+
+@csrf_exempt
+def signup(request):
+    """Handle user signup."""
+    if request.method == "POST":
+        try:
+            data = json.loads(request.body)
+            username = data.get("username")
+            email = data.get("email")
+            password = data.get("password")
+
+            print(f"Signup Data: Username={username}, Email={email}, Password={password}")  # Debugging
+
+            if not username or not email or not password:
+                return JsonResponse({"error": "All fields are required."}, status=400)
+
+            if User.objects.filter(username=username).exists():
+                return JsonResponse({"error": "Username already exists."}, status=400)
+
+            user = User.objects.create_user(username=username, email=email, password=password)
+            user.save()
+            print("User created successfully.")  # Debugging
+            return JsonResponse({"message": "User created successfully."}, status=201)
+        except Exception as e:
+            print(f"Error: {str(e)}")  # Debugging
+            return JsonResponse({"error": str(e)}, status=500)
+
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from django.contrib.auth import authenticate
+
+@api_view(['POST'])
+def jwt_login_view(request):
+    """Handle user login and return JWT tokens."""
+    username = request.data.get("username")
+    password = request.data.get("password")
+
+    user = authenticate(request, username=username, password=password)
+    if user is not None:
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "refresh": str(refresh),
+            "access": str(refresh.access_token),
+            "username": user.username,
+        }, status=status.HTTP_200_OK)
+    else:
+        return Response({"error": "Invalid credentials."}, status=status.HTTP_401_UNAUTHORIZED)
+
+from django.views.decorators.csrf import csrf_exempt
+
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.response import Response
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication])
+@permission_classes([IsAuthenticated])
+def validate_user(request):
+    """Check if the user is authenticated."""
+    return Response({"authenticated": True, "username": request.user.username}, status=200)
 
