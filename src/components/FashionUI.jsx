@@ -283,6 +283,7 @@ const FashionUI = () => {
           
           setRecommendations(finalRecs);
           fetchRecommendationImages(finalRecs);
+          saveRecommendations(finalRecs); // Save recommendations to the backend
         } else if (response.data && response.data.error) {
           setError(`Error: ${response.data.error}`);
           alert(`Error: ${response.data.error}`);
@@ -312,6 +313,7 @@ const FashionUI = () => {
           
           setRecommendations(finalRecs);
           fetchRecommendationImages(finalRecs);
+          saveRecommendations(finalRecs); // Save recommendations to the backend
         } else if (response.data && response.data.error) {
           setError(`Error: ${response.data.error}`);
           alert(`Error: ${response.data.error}`);
@@ -376,6 +378,40 @@ const FashionUI = () => {
       }
     } catch (error) {
       console.error("Error fetching recommendation images:", error);
+    }
+  };
+
+  // Function to save recommendations to the backend
+  const saveRecommendations = async (recommendations) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      if (!token) {
+        console.error("No access token found. User might not be authenticated.");
+        return;
+      }
+
+      const response = await fetch("http://localhost:8000/api/recommendations/save-recommendations/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // Include JWT token
+        },
+        body: JSON.stringify({
+          recommendations: recommendations,
+          body_shape: bodyShape || "",
+          occasion: occasion || ""
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Failed to save recommendations. Response:", errorText);
+        throw new Error("Failed to save recommendations.");
+      }
+
+      console.log("Recommendations saved successfully.");
+    } catch (error) {
+      console.error("Error saving recommendations:", error);
     }
   };
 

@@ -51,6 +51,7 @@ const Auth = () => {
       setError("");
       // Set the access token for authenticated requests
       setAccessToken(response.data.access);
+      localStorage.setItem("access_token", response.data.access); // Store token in localStorage
       setIsAuthenticated(true); // Update global authentication state
       navigate("/FitRec"); // Navigate to FitRec after login
     } catch (err) {

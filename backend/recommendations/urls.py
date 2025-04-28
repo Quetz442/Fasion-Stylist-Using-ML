@@ -17,6 +17,8 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
+from .views import SaveRecommendationsView, GetRecommendationsView
+
 urlpatterns = [
     path("recommend/", RecommendationView.as_view(), name="recommend"),
     path("metadata/", MetadataView.as_view(), name="metadata"),
@@ -31,4 +33,6 @@ urlpatterns = [
     path("validate-user/", validate_user, name="validate-user"),
     path('token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path("recommendations/save-recommendations/", SaveRecommendationsView.as_view(), name="save-recommendations"),
+    path("recommendations/", GetRecommendationsView.as_view(), name="get-recommendations"),
 ]

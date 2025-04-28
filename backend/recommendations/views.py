@@ -15,6 +15,11 @@ from django.views.decorators.http import require_POST
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
 import json
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+import json
+from recommendations.models import Recommendation
 
 import requests
 
@@ -693,3 +698,60 @@ def validate_user(request):
     """Check if the user is authenticated."""
     return Response({"authenticated": True, "username": request.user.username}, status=200)
 
+
+
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.response import Response
+from rest_framework import status
+
+class SaveRecommendationsView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            data = request.data
+            recommendations = data.get("recommendations", {})
+            recommendation_images = data.get("recommendation_images", {})  # New field for images
+            user = request.user
+
+            # Optional: clear existing recommendations for user before saving new ones
+            Recommendation.objects.filter(user=user).delete()
+
+            body_shape = data.get("body_shape", "")
+            occasion = data.get("occasion", "")
+
+            for category, rec_text in recommendations.items():
+                rec_images = recommendation_images.get(category, None)
+                Recommendation.objects.create(
+                    user=user,
+                    body_shape=body_shape,
+                    occasion=occasion,
+                    category=category,
+                    clothing_type=category,
+                    recommendations=rec_text,
+                    recommendation_images=rec_images
+                )
+
+            return Response({"message": "Recommendations saved successfully."}, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+class GetRecommendationsView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        recs = Recommendation.objects.filter(user=user)
+        recommendations_list = [
+            {
+                "title": rec.category,
+                "description": rec.recommendations,
+                "images": rec.recommendation_images if rec.recommendation_images else {}
+            }
+            for rec in recs
+        ]
+        return Response({"recommendations": recommendations_list}, status=status.HTTP_200_OK)
