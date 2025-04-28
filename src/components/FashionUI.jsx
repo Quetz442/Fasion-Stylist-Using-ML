@@ -7,6 +7,7 @@ import axios from "axios";
 
 const FashionUI = () => {
   const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [measurements, setMeasurements] = useState({ shoulder: "", bust: "", waist: "", hips: "" });
   const [bodyShape, setBodyShape] = useState("");
   const [colorAnalysis, setColorAnalysis] = useState({ eye: "", hair: "", skin: "" });
@@ -32,49 +33,76 @@ const FashionUI = () => {
         setAvailableBodyShapes(bodyShapesResponse.data || []);
         // Set available seasons
         setAvailableSeasons(["Spring", "Summer", "Autumn", "Winter"]);
+        // Set available occasions
+        setAvailableOccasions(["Formal", "Casual", "Party", "Workwear", "Streetwear", "Ethnicwear"]);
     } catch (error) {
         console.error("Error fetching options:", error);
         setAvailableBodyShapes(["Hourglass", "Pear", "Apple", "Inverted Triangle", "Rectangle"]);
         // Set available seasons as fallback
         setAvailableSeasons(["Spring", "Summer", "Autumn", "Winter"]);
+        // Set available occasions as fallback
+        setAvailableOccasions(["Formal", "Casual", "Party", "Workwear", "Streetwear", "Ethnicwear"]);
     }
-};
+  };
 
-  const handleImageUpload = (event) => setImage(event.target.files[0]);
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setImage(file);
+      
+      // Create image preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
   const handleMeasurementChange = (e) => setMeasurements({ ...measurements, [e.target.name]: e.target.value });
   const handleColorChange = (e) => setColorAnalysis({ ...colorAnalysis, [e.target.name]: e.target.value });
 
   const detectBodyShape = async () => {
-    if (!measurements.shoulder || !measurements.bust || !measurements.waist || !measurements.hips) {
-      alert("Please fill in all measurement fields");
-      return;
-    }
-
     setLoading(true);
     setError(null);
+    
     try {
-      const formData = new FormData();
-      if (image) {
-        formData.append("image", image);
+      if (!image) {
+        throw new Error("Please upload an image for body shape detection");
       }
-      formData.append("shoulder", measurements.shoulder);
-      formData.append("bust", measurements.bust);
-      formData.append("waist", measurements.waist);
-      formData.append("hips", measurements.hips);
+      
+      const formData = new FormData();
+      formData.append("image", image);
+      
+      // Add measurements if they are available
+      if (measurements.shoulder) formData.append("shoulder", measurements.shoulder);
+      if (measurements.bust) formData.append("bust", measurements.bust);
+      if (measurements.waist) formData.append("waist", measurements.waist);
+      if (measurements.hips) formData.append("hips", measurements.hips);
 
-      const response = await axios.post("http://127.0.0.1:8000/api/detect-body-shape/", formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.post(
+        "http://127.0.0.1:8000/api/detect-body-shape/", 
+        formData, 
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
 
       if (response.data && response.data.body_shape) {
         setBodyShape(response.data.body_shape);
         alert(`Detected body shape: ${response.data.body_shape}`);
+        
+        // Automatically fetch recommendations based on the detected body shape
+        return response.data.body_shape;
+      } else {
+        throw new Error("No body shape detected in response");
       }
     } catch (error) {
       console.error("Error detecting body shape:", error);
-      setError("Failed to detect body shape. Please try again or select manually.");
+      setError(`Failed to detect body shape: ${error.message || "Unknown error"}`);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -134,7 +162,7 @@ const FashionUI = () => {
     } catch (error) {
         console.error("Error fetching seasonal recommendations:", error);
     }
-};
+  };
 
   // When season changes manually, fetch recommendations
   useEffect(() => {
@@ -144,7 +172,25 @@ const FashionUI = () => {
   }, [season]);
 
   const handleRecommend = async (type) => {
-    if (!bodyShape) {
+    let currentBodyShape = bodyShape;
+    
+    // If no body shape is selected, try to detect it from the image
+    if (!currentBodyShape && image) {
+      try {
+        setLoading(true);
+        currentBodyShape = await detectBodyShape();
+        if (!currentBodyShape) {
+          alert("Please select or detect a body shape first");
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error in body shape detection:", error);
+        alert("Error detecting body shape. Please select manually.");
+        setLoading(false);
+        return;
+      }
+    } else if (!currentBodyShape) {
       alert("Please select or detect a body shape first");
       return;
     }
@@ -156,7 +202,7 @@ const FashionUI = () => {
     try {
       // Create payload
       const payload = {
-        body_shape: bodyShape
+        body_shape: currentBodyShape
       };
       
       // Only add occasion if it's selected and we're doing occasion-based recommendation
@@ -169,45 +215,77 @@ const FashionUI = () => {
         payload.season = season;
       }
       
-      // For debugging only
-      console.log("Sending request to backend:", payload);
-      
-      // Make API request
-      const response = await axios.post("http://127.0.0.1:8000/api/recommend/", payload);
-      
-      // For debugging only
-      console.log("Received response from backend:", response.data);
-      
-      // Process response
-      if (response.data && response.data.recommendations) {
-        // Merge seasonal recommendations if they exist
-        let finalRecs = { ...response.data.recommendations };
+      // Add image to payload if available
+      if (image) {
+        const formData = new FormData();
         
-        // If it's a season-specific recommendation and we have seasonal data
-        if ((type === "seasonal color" || type === "all") && seasonalRecommendations) {
-          if (seasonalRecommendations.complementary_colors) {
-            finalRecs["Complementary Colors"] = seasonalRecommendations.complementary_colors.join(", ");
-          }
-          if (seasonalRecommendations.color_combinations) {
-            finalRecs["Color Combinations"] = seasonalRecommendations.color_combinations.join(", ");
-          }
+        // Add all the JSON data
+        for (const [key, value] of Object.entries(payload)) {
+          formData.append(key, value);
         }
         
-        setRecommendations(finalRecs);
+        // Add the image file
+        formData.append("image", image);
         
-        // Log the data that will be rendered
-        console.log("Setting recommendations:", finalRecs);
-      } else if (response.data && response.data.error) {
-        setError(`Error: ${response.data.error}`);
-        alert(`Error: ${response.data.error}`);
-      } else if (!response.data || Object.keys(response.data).length === 0) {
-        // Handle empty response
-        setError("Received empty response from server");
-        console.error("Empty response received");
+        // Make API request with FormData
+        const response = await axios.post("http://127.0.0.1:8000/api/recommend/", formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+        
+        // Process response
+        if (response.data && response.data.recommendations) {
+          // Merge seasonal recommendations if they exist
+          let finalRecs = { ...response.data.recommendations };
+          
+          // If it's a season-specific recommendation and we have seasonal data
+          if ((type === "seasonal color" || type === "all") && seasonalRecommendations) {
+            if (seasonalRecommendations.complementary_colors) {
+              finalRecs["Complementary Colors"] = seasonalRecommendations.complementary_colors.join(", ");
+            }
+            if (seasonalRecommendations.color_combinations) {
+              finalRecs["Color Combinations"] = seasonalRecommendations.color_combinations.join(", ");
+            }
+          }
+          
+          setRecommendations(finalRecs);
+        } else if (response.data && response.data.error) {
+          setError(`Error: ${response.data.error}`);
+          alert(`Error: ${response.data.error}`);
+        } else {
+          // Fallback for unexpected response format
+          setError("Unknown response format");
+          console.error("Unexpected response format:", response.data);
+        }
       } else {
-        // Fallback for unexpected response format
-        setError("Unknown response format");
-        console.error("Unexpected response format:", response.data);
+        // Make API request without image
+        const response = await axios.post("http://127.0.0.1:8000/api/recommend/", payload);
+        
+        // Process response
+        if (response.data && response.data.recommendations) {
+          // Merge seasonal recommendations if they exist
+          let finalRecs = { ...response.data.recommendations };
+          
+          // If it's a season-specific recommendation and we have seasonal data
+          if ((type === "seasonal color" || type === "all") && seasonalRecommendations) {
+            if (seasonalRecommendations.complementary_colors) {
+              finalRecs["Complementary Colors"] = seasonalRecommendations.complementary_colors.join(", ");
+            }
+            if (seasonalRecommendations.color_combinations) {
+              finalRecs["Color Combinations"] = seasonalRecommendations.color_combinations.join(", ");
+            }
+          }
+          
+          setRecommendations(finalRecs);
+        } else if (response.data && response.data.error) {
+          setError(`Error: ${response.data.error}`);
+          alert(`Error: ${response.data.error}`);
+        } else {
+          // Fallback for unexpected response format
+          setError("Unknown response format");
+          console.error("Unexpected response format:", response.data);
+        }
       }
     } catch (error) {
       // Handle errors
@@ -239,15 +317,6 @@ const FashionUI = () => {
     }
   };
 
-  // For debugging - log when recommendations state changes
-  useEffect(() => {
-    console.log("Recommendations state updated:", recommendations);
-  }, [recommendations]);
-
-  useEffect(() => {
-    console.log("Seasonal recommendations updated:", seasonalRecommendations);
-  }, [seasonalRecommendations]);
-
   return (
     <Section
       className="pt-[8rem] -mt-[5.25rem]"
@@ -277,40 +346,70 @@ const FashionUI = () => {
                   {error}
                 </div>
               )}
+              
+              {/* Image Upload Section */}
+              <div className="mb-6 p-6 border border-blue-500 rounded-lg shadow-lg backdrop-blur-sm bg-n-8/40">
+                <h2 className="text-2xl mb-4">Upload Your Photo</h2>
+                <div className="flex flex-col md:flex-row gap-6 items-center">
+                  <div className="flex-1">
+                    <input 
+                      type="file" 
+                      onChange={handleImageUpload} 
+                      className="mb-4 cursor-pointer w-full"
+                      accept="image/*"
+                    />
+                    <p className="text-sm text-gray-400 mb-4">
+                      Upload a clear, full-body photo for the most accurate analysis.
+                      Front-facing photos work best.
+                    </p>
+                    <button
+                      className="btn-style w-full bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 p-3 rounded-xl font-bold"
+                      onClick={detectBodyShape}
+                      disabled={loading || !image}
+                    >
+                      {loading ? "Processing..." : "Detect Body Shape from Photo"}
+                    </button>
+                  </div>
+                  <div className="flex-1 flex justify-center">
+                    {imagePreview ? (
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="max-h-64 max-w-full object-contain border border-gray-500 rounded-lg"
+                      />
+                    ) : (
+                      <div className="h-64 w-full flex items-center justify-center border border-gray-500 rounded-lg bg-gray-800/50">
+                        <p className="text-gray-400">No image uploaded</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                 {/* Body Shape Analysis */}
                 <div className="p-6 border border-purple-500 rounded-lg shadow-lg hover:scale-105 transform transition duration-300 flex flex-col justify-between h-[600px] backdrop-blur-sm bg-n-8/40">
                   <h2 className="text-2xl mb-4">Body Shape Analysis</h2>
-                  <input type="file" onChange={handleImageUpload} className="mb-2 cursor-pointer" />
                   <input type="number" name="shoulder" placeholder="Shoulder" value={measurements.shoulder} onChange={handleMeasurementChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
                   <input type="number" name="bust" placeholder="Bust" value={measurements.bust} onChange={handleMeasurementChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
                   <input type="number" name="waist" placeholder="Waist" value={measurements.waist} onChange={handleMeasurementChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
                   <input type="number" name="hips" placeholder="Hips" value={measurements.hips} onChange={handleMeasurementChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
-                  <div className="flex gap-2">
-                    <button
-                      className="btn-style flex-1 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 p-3 rounded-xl font-bold"
-                      onClick={detectBodyShape}
-                      disabled={loading}
-                    >
-                      {loading ? "Processing..." : "Detect Shape"}
-                    </button>
-                    <span>OR</span>
+                  <div className="flex gap-2 items-center">
+                    <span className="text-gray-400">Select:</span>
                     <select 
                       value={bodyShape} 
                       onChange={(e) => setBodyShape(e.target.value)} 
                       className="flex-1 input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white"
                     >
                       <option value="">Select Body Shape</option>
-                      {availableBodyShapes.length > 0 
-                        ? availableBodyShapes.map((shape, idx) => (
-                            <option key={idx} value={shape}>{shape}</option>
-                          ))
-                        : ["Hourglass", "Pear", "Apple", "Inverted Triangle", "Rectangle"].map((shape, idx) => (
-                            <option key={idx} value={shape}>{shape}</option>
-                          ))
-                      }
+                      {availableBodyShapes.map((shape, idx) => (
+                        <option key={idx} value={shape}>{shape}</option>
+                      ))}
                     </select>
+                  </div>
+                  <div className="bg-gray-800/30 p-4 rounded-lg">
+                    <h3 className="text-lg mb-2">Your Body Shape:</h3>
+                    <p className="text-2xl font-bold text-purple-400">{bodyShape || "Not detected yet"}</p>
                   </div>
                   <button
                     className="btn-style bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 p-3 rounded-xl font-bold"
@@ -324,7 +423,6 @@ const FashionUI = () => {
                 {/* Seasonal Colour Analysis */}
                 <div className="p-6 border border-purple-500 rounded-lg shadow-lg hover:scale-105 transform transition duration-300 flex flex-col justify-between h-[600px] backdrop-blur-sm bg-n-8/40">
                   <h2 className="text-2xl mb-4">Seasonal Colour Analysis</h2>
-                  <input type="file" onChange={handleImageUpload} className="mb-2 cursor-pointer" />
                   <input type="text" name="eye" placeholder="Eye Color" value={colorAnalysis.eye} onChange={handleColorChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
                   <input type="text" name="hair" placeholder="Hair Color" value={colorAnalysis.hair} onChange={handleColorChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
                   <input type="text" name="skin" placeholder="Skin Color" value={colorAnalysis.skin} onChange={handleColorChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
@@ -343,15 +441,14 @@ const FashionUI = () => {
                       className="flex-1 input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white"
                     >
                       <option value="">Select Season</option>
-                      {availableSeasons.length > 0 
-                        ? availableSeasons.map((s, idx) => (
-                            <option key={idx} value={s}>{s}</option>
-                          ))
-                        : ["Spring", "Summer", "Autumn", "Winter"].map((s, idx) => (
-                            <option key={idx} value={s}>{s}</option>
-                          ))
-                      }
+                      {availableSeasons.map((s, idx) => (
+                        <option key={idx} value={s}>{s}</option>
+                      ))}
                     </select>
+                  </div>
+                  <div className="bg-gray-800/30 p-4 rounded-lg">
+                    <h3 className="text-lg mb-2">Your Season:</h3>
+                    <p className="text-2xl font-bold text-purple-400">{season || "Not detected yet"}</p>
                   </div>
                   <button 
                     className="btn-style bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 p-3 rounded-xl font-bold" 
@@ -372,14 +469,9 @@ const FashionUI = () => {
                   className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white"
                 >
                   <option value="">Select Occasion</option>
-                  {availableOccasions.length > 0 
-                    ? availableOccasions.map((occ, idx) => (
-                        <option key={idx} value={occ}>{occ}</option>
-                      ))
-                    : ["Formal", "Casual", "Party", "Workwear", "Streetwear", "Ethnicwear"].map((occ, idx) => (
-                        <option key={idx} value={occ}>{occ}</option>
-                      ))
-                  }
+                  {availableOccasions.map((occ, idx) => (
+                    <option key={idx} value={occ}>{occ}</option>
+                  ))}
                 </select>
                 <button 
                   className="btn-style bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 p-3 rounded-xl font-bold" 
@@ -394,7 +486,7 @@ const FashionUI = () => {
               <button 
                 className="btn-style w-full mt-6 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 p-3 rounded-xl font-bold" 
                 onClick={() => handleRecommend("all")}
-                disabled={loading || !bodyShape}
+                disabled={loading || (!bodyShape && !image)}
               >
                 {loading ? "Processing..." : "Get Full Recommendation"}
               </button>
