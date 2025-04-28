@@ -20,6 +20,8 @@ const FashionUI = () => {
   const [seasonalRecommendations, setSeasonalRecommendations] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [colorAnalysisImage, setColorAnalysisImage] = useState(null);
+  const [colorAnalysisImagePreview, setColorAnalysisImagePreview] = useState(null);
   const parallaxRef = useRef(null);
 
   // Fetch available body shapes, occasions, and seasons on component mount
@@ -54,6 +56,20 @@ const FashionUI = () => {
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleColorAnalysisImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setColorAnalysisImage(file);
+      
+      // Create image preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setColorAnalysisImagePreview(reader.result);
       };
       reader.readAsDataURL(file);
     }
@@ -109,27 +125,39 @@ const FashionUI = () => {
   };
 
   const detectSeason = async () => {
-    if (!colorAnalysis.eye || !colorAnalysis.hair || !colorAnalysis.skin) {
-      alert("Please fill in all color fields");
-      return;
-    }
-
     setLoading(true);
     setError(null);
+    
     try {
+      // Create form data for the API request
       const formData = new FormData();
-      if (image) {
+      
+      // Add the face image if available (for face-based seasonal color analysis)
+      if (colorAnalysisImage) {
+        formData.append("image", colorAnalysisImage);
+      } else if (image) {
+        // Fallback to the main image if no specific face image is provided
         formData.append("image", image);
+      } else if (!colorAnalysis.eye || !colorAnalysis.hair || !colorAnalysis.skin) {
+        // If no image is provided, make sure we have the color inputs
+        throw new Error("Please either upload a face photo or fill in all color fields");
       }
-      formData.append("eye_color", colorAnalysis.eye);
-      formData.append("hair_color", colorAnalysis.hair);
-      formData.append("skin_tone", colorAnalysis.skin);
+      
+      // Add manual color inputs if they are provided
+      if (colorAnalysis.eye) formData.append("eye_color", colorAnalysis.eye);
+      if (colorAnalysis.hair) formData.append("hair_color", colorAnalysis.hair);
+      if (colorAnalysis.skin) formData.append("skin_tone", colorAnalysis.skin);
 
-      const response = await axios.post("http://127.0.0.1:8000/api/detect-season/", formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      // Call the seasonal color analysis API endpoint
+      const response = await axios.post(
+        "http://127.0.0.1:8000/api/analyze-seasonal-color/", 
+        formData, 
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
 
       if (response.data && response.data.season) {
         setSeason(response.data.season);
@@ -141,15 +169,17 @@ const FashionUI = () => {
             color_combinations: response.data.color_combinations
           });
         } else {
-          // If the detect-season endpoint didn't return complete information, fetch it separately
+          // If the analyze-seasonal-color endpoint didn't return complete information, fetch it separately
           fetchSeasonalRecommendations(response.data.season);
         }
         
         alert(`Detected season: ${response.data.season}`);
+      } else {
+        throw new Error("No seasonal color type detected in response");
       }
     } catch (error) {
       console.error("Error detecting season:", error);
-      setError("Failed to detect season. Please try again or select manually.");
+      setError(`Failed to detect season: ${error.message || "Unknown error"}`);
     } finally {
       setLoading(false);
     }
@@ -423,14 +453,42 @@ const FashionUI = () => {
                 {/* Seasonal Colour Analysis */}
                 <div className="p-6 border border-purple-500 rounded-lg shadow-lg hover:scale-105 transform transition duration-300 flex flex-col justify-between h-[600px] backdrop-blur-sm bg-n-8/40">
                   <h2 className="text-2xl mb-4">Seasonal Colour Analysis</h2>
+                  
+                  {/* Face Image Upload */}
+                  <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-300 mb-1">Upload Face Photo:</label>
+                    <input 
+                      type="file" 
+                      onChange={handleColorAnalysisImageUpload} 
+                      className="cursor-pointer w-full mb-2"
+                      accept="image/*"
+                    />
+                    {colorAnalysisImagePreview && (
+                      <div className="w-full flex justify-center mb-2">
+                        <img 
+                          src={colorAnalysisImagePreview} 
+                          alt="Face Preview" 
+                          className="h-24 object-contain border border-gray-500 rounded-lg"
+                        />
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-400">
+                      Upload a clear face photo for accurate color analysis, or enter details manually below
+                    </p>
+                  </div>
+                  
+                  <div className="text-center text-sm mb-1">-- OR --</div>
+                  
+                  {/* Manual color inputs */}
                   <input type="text" name="eye" placeholder="Eye Color" value={colorAnalysis.eye} onChange={handleColorChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
                   <input type="text" name="hair" placeholder="Hair Color" value={colorAnalysis.hair} onChange={handleColorChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
                   <input type="text" name="skin" placeholder="Skin Color" value={colorAnalysis.skin} onChange={handleColorChange} className="input-style bg-n-9/40 backdrop-blur border border-n-1/10 p-3 rounded-xl text-white" />
+                  
                   <div className="flex gap-2">
                     <button
                       className="btn-style flex-1 bg-gradient-to-r from-indigo-500 to-blue-600 hover:from-indigo-600 hover:to-blue-700 p-3 rounded-xl font-bold"
                       onClick={detectSeason}
-                      disabled={loading}
+                      disabled={loading || (!colorAnalysisImage && !image && (!colorAnalysis.eye || !colorAnalysis.hair || !colorAnalysis.skin))}
                     >
                       {loading ? "Processing..." : "Detect Season"}
                     </button>

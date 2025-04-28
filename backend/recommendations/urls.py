@@ -5,7 +5,8 @@ from .views import (
     SeasonalColourView,
     BodyShapesView,
     SeasonRecommendationsView,
-    detect_body_shape_image,  # Import the new function
+    detect_body_shape_image,
+    analyze_seasonal_color  # Import the new function
 )
 
 urlpatterns = [
@@ -14,5 +15,6 @@ urlpatterns = [
     path("seasonal-colour/", SeasonalColourView.as_view(), name="seasonal-colour"),
     path("body-shapes/", BodyShapesView.as_view(), name="body-shapes"),
     path("season-recommendations/", SeasonRecommendationsView.as_view(), name="season-recommendations"),
-    path("detect-body-shape/", detect_body_shape_image, name="detect-body-shape"),  # Add the new route
+    path("detect-body-shape/", detect_body_shape_image, name="detect-body-shape"),
+    path("analyze-seasonal-color/", analyze_seasonal_color, name="analyze-seasonal-color"),  # Add the new route
 ]

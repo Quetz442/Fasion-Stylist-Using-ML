@@ -5,6 +5,7 @@ from rest_framework import status
 import os
 import base64
 import io
+import cv2
 from PIL import Image
 import google.generativeai as genai
 from django.conf import settings
@@ -262,3 +263,297 @@ After examination, respond with ONLY the body shape name. Choose EXACTLY ONE fro
             'error': f'Image analysis failed: {str(e)}',
             'details': error_details
         }, status=500)
+
+@csrf_exempt
+@require_POST
+def analyze_seasonal_color(request):
+    """Analyze facial features to determine seasonal color classification with improved accuracy"""
+    try:
+        # Check if we have an image
+        if 'image' not in request.FILES:
+            return JsonResponse({'error': 'No image provided'}, status=400)
+        
+        # Get image from request
+        image_file = request.FILES['image']
+        
+        # Read image bytes
+        image_bytes = image_file.read()
+        
+        # Process image for optimal facial feature analysis
+        try:
+            img = Image.open(io.BytesIO(image_bytes))
+            # Convert the image to RGB mode if needed
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            
+            # Resize if the image is too large while preserving aspect ratio
+            max_size = 1500  # Maximum dimension for analysis
+            if max(img.size) > max_size:
+                img.thumbnail((max_size, max_size))
+            
+            # Enhanced image processing for better color analysis
+            from PIL import ImageEnhance
+            import numpy as np
+            
+            # Enhanced color saturation for better color detection
+            enhancer_color = ImageEnhance.Color(img)
+            img = enhancer_color.enhance(1.3)  # Increased color enhancement
+            
+            # Increase contrast to better differentiate features and detect contrast levels
+            enhancer_contrast = ImageEnhance.Contrast(img)
+            img = enhancer_contrast.enhance(1.2)  # Increased contrast enhancement
+            
+            # Optimize brightness for accurate color reading
+            enhancer_brightness = ImageEnhance.Brightness(img)
+            img = enhancer_brightness.enhance(1.05)
+            
+            # Convert the PIL Image object to bytes
+            img_byte_arr = io.BytesIO()
+            img.save(img_byte_arr, format="JPEG", quality=95)  # High quality JPEG
+            image_bytes = img_byte_arr.getvalue()
+            
+        except Exception as img_error:
+            return JsonResponse({'error': f'Image processing error: {str(img_error)}'}, status=400)
+        
+        # Load Gemini model for analysis
+        model = genai.GenerativeModel('gemini-1.5-pro')
+        
+        # Improved prompt for color season analysis with enhanced differentiation
+        analysis_prompt = """Analyze this person's facial features to determine their seasonal color palette classification.
+
+First, carefully assess the PRIMARY DETERMINING FACTORS:
+
+1. CONTRAST LEVEL (CRITICAL):
+   - HIGH CONTRAST: Sharp, dramatic difference between hair, skin, and eyes (strongly favors Winter)
+   - MEDIUM-HIGH CONTRAST: Clear distinction between features (favors Spring or Winter)
+   - MEDIUM-LOW CONTRAST: Moderate distinction between features (favors Autumn)
+   - LOW CONTRAST: Soft, blended transitions between features (favors Summer)
+
+2. UNDERTONE TEMPERATURE:
+   - COOL: Blue/pink/ash undertones (favors Winter or Summer)
+   - WARM: Golden/yellow/peach undertones (favors Spring or Autumn)
+
+3. CLARITY VS. MUTEDNESS:
+   - CLEAR: Bright, vivid, crisp coloring (favors Winter or Spring)
+   - MUTED: Soft, dusty, toned-down coloring (favors Summer or Autumn)
+
+Then carefully examine these specific features:
+
+4. HAIR COLOR:
+   - WINTER: Dark brown to blue-black, cool dark brown, or platinum blonde; never golden/warm
+   - SUMMER: Ash blonde, cool medium brown, or silver-gray; never warm/golden/red
+   - AUTUMN: Copper, auburn, warm brown, golden brown, or golden blonde 
+   - SPRING: Golden blonde, strawberry blonde, warm medium brown with golden highlights
+
+5. SKIN TONE:
+   - WINTER: Porcelain white, olive with blue undertones, cool beige, or deep cool brown
+   - SUMMER: Pale pink-beige, neutral beige with pink undertones, or cool light brown
+   - AUTUMN: Ivory with peach undertones, golden beige, or warm medium brown
+   - SPRING: Ivory with golden undertones, peach, or warm golden brown
+
+6. EYE COLOR:
+   - WINTER: Clear, bright - black, cool brown, bright blue, or clear green
+   - SUMMER: Soft, muted - gray-blue, soft brown, soft green, or gray
+   - AUTUMN: Warm, intense - amber, copper, hazel, forest green, or warm brown
+   - SPRING: Clear, bright - golden brown, turquoise, bright green, or clear blue
+
+SPECIAL WINTER VS. SUMMER DISTINCTION:
+Winter and Summer are both cool seasons but differ crucially in:
+- CONTRAST: Winter has HIGH contrast, Summer has LOW contrast
+- INTENSITY: Winter looks are CLEAR and BRIGHT, Summer looks are SOFT and MUTED
+- IMPACT: Winter features appear STRIKING and DRAMATIC, Summer features appear GENTLE and SUBTLE
+
+Based on these characteristics, classify the person into EXACTLY ONE seasonal color palette:
+
+- WINTER: High contrast, cool undertones, clear and bright colors
+- SUMMER: Low contrast, cool undertones, soft and muted colors
+- AUTUMN: Medium contrast, warm undertones, rich and muted colors
+- SPRING: Medium-high contrast, warm undertones, clear and bright colors
+
+Pay special attention to the clearest, most obvious features first. If you see HIGH CONTRAST between hair, skin and eyes, this strongly indicates WINTER.
+
+After examination, respond with ONLY the seasonal color palette name. Choose EXACTLY ONE from: Spring, Summer, Autumn, or Winter."""
+        
+        # Get the seasonal color analysis result
+        response = model.generate_content(
+            contents=[
+                {
+                    "parts": [
+                        {
+                            "mime_type": "image/jpeg",
+                            "data": image_bytes
+                        },
+                        {
+                            "text": analysis_prompt
+                        }
+                    ]
+                }
+            ],
+            generation_config={
+                "temperature": 0.1,
+                "max_output_tokens": 30
+            }
+        )
+        response.resolve()
+        
+        # Extract the detected season from the response
+        detected_season = response.text.strip()
+        
+        # Map variations or longer responses to standard season names
+        season_map = {
+            "spring": "Spring",
+            "summer": "Summer",
+            "autumn": "Autumn",
+            "fall": "Autumn",  # Map fall to Autumn
+            "winter": "Winter"
+        }
+        
+        # Find the closest matching standard season
+        detected_season_lower = detected_season.lower()
+        for key, value in season_map.items():
+            if key in detected_season_lower:
+                detected_season = value
+                break
+        
+        # If no match is found or unclear, run a more specific analysis focused on contrast
+        if detected_season not in ["Spring", "Summer", "Autumn", "Winter"]:
+            # Additional analysis focusing specifically on contrast levels
+            contrast_focused_prompt = """Re-analyze this person's facial features, focusing PRIMARILY on CONTRAST LEVEL:
+
+1. HIGH CONTRAST between hair, skin, and eyes indicates WINTER
+   - Dark hair with light skin is a strong Winter indicator
+   - Clear, defined eyes with strong color differentiation
+   - Overall impression is dramatic and striking
+
+2. LOW CONTRAST between hair, skin, and eyes indicates SUMMER
+   - Hair color is not dramatically different from skin tone
+   - Features blend together with soft transitions
+   - Overall impression is gentle and subtle
+
+3. MEDIUM CONTRAST with WARM undertones indicates AUTUMN
+   - Warm-toned hair that is distinctly different from skin, but not dramatically so
+   - Eyes typically have warm flecks or are warm-toned
+   - Colors appear rich but muted
+
+4. MEDIUM-HIGH CONTRAST with WARM undertones indicates SPRING
+   - Warm-toned hair that contrasts clearly with skin
+   - Eyes are often bright and clear
+   - Overall impression is bright and warm
+
+Based on CONTRAST LEVEL as the primary factor, classify this person as EXACTLY ONE of: Winter, Summer, Autumn, or Spring."""
+
+            secondary_response = model.generate_content(
+                contents=[
+                    {
+                        "parts": [
+                            {
+                                "mime_type": "image/jpeg",
+                                "data": image_bytes
+                            },
+                            {
+                                "text": contrast_focused_prompt
+                            }
+                        ]
+                    }
+                ],
+                generation_config={
+                    "temperature": 0.1,
+                    "max_output_tokens": 30
+                }
+            )
+            secondary_response.resolve()
+            detected_season = secondary_response.text.strip()
+            
+            # Apply the season mapping again
+            detected_season_lower = detected_season.lower()
+            for key, value in season_map.items():
+                if key in detected_season_lower:
+                    detected_season = value
+                    break
+        
+        # If still no match, conduct a third analysis specifically for high contrast faces
+        if detected_season not in ["Spring", "Summer", "Autumn", "Winter"]:
+            # Third analysis specifically for high contrast features
+            high_contrast_prompt = """This image appears to be difficult to classify.
+
+Look ONLY at the level of contrast between hair, skin, and eyes:
+
+- If there is HIGH CONTRAST (dark hair with light skin, or very clear distinct features), classify as WINTER.
+- If there is LOW CONTRAST (hair color similar to skin tone, soft blended features), classify as SUMMER.
+- If there is MEDIUM CONTRAST with WARM tones, classify as AUTUMN.
+- If there is MEDIUM-HIGH CONTRAST with WARM tones, classify as SPRING.
+
+Important: For faces with dark hair and light skin, the default classification should be WINTER unless there is clear evidence of warmth (golden/red tones) indicating AUTUMN.
+
+Choose EXACTLY ONE season: Winter, Summer, Autumn, or Spring."""
+
+            tertiary_response = model.generate_content(
+                contents=[
+                    {
+                        "parts": [
+                            {
+                                "mime_type": "image/jpeg",
+                                "data": image_bytes
+                            },
+                            {
+                                "text": high_contrast_prompt
+                            }
+                        ]
+                    }
+                ],
+                generation_config={
+                    "temperature": 0.1,
+                    "max_output_tokens": 30
+                }
+            )
+            tertiary_response.resolve()
+            detected_season = tertiary_response.text.strip()
+            
+            # Apply the season mapping one more time
+            detected_season_lower = detected_season.lower()
+            for key, value in season_map.items():
+                if key in detected_season_lower:
+                    detected_season = value
+                    break
+        
+        # If still no match, default to Winter for high contrast faces
+        if detected_season not in ["Spring", "Summer", "Autumn", "Winter"]:
+            # Analyze for high contrast as a final fallback
+            img_array = np.array(img)
+            
+            # Simple contrast detection (very basic)
+            try:
+                # Convert to grayscale for contrast analysis
+                if len(img_array.shape) == 3:
+                    gray = cv2.cvtColor(img_array, cv2.COLOR_RGB2GRAY)
+                else:
+                    gray = img_array
+                
+                # Calculate histogram
+                hist = cv2.calcHist([gray], [0], None, [256], [0, 256])
+                
+                # Calculate standard deviation of pixel values as contrast measure
+                std_dev = np.std(gray)
+                
+                # High standard deviation indicates high contrast
+                if std_dev > 60:  # Threshold determined empirically
+                    detected_season = "Winter"
+                else:
+                    detected_season = "Summer"
+            except:
+                # If image processing fails, default to Winter for safety
+                detected_season = "Winter"
+            
+        
+        return JsonResponse({
+            'season': detected_season,
+        })
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        return JsonResponse({
+            'error': f'Image analysis failed: {str(e)}',
+            'details': error_details
+        }, status=500)
+
