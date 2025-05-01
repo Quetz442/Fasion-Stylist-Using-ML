@@ -708,25 +708,7 @@ const FashionUI = () => {
                 </div>
               )}
               
-              {/* Debug info for development only */}
-              {process.env.NODE_ENV === 'development' && (
-                <div className="mt-6 p-4 bg-gray-800 border border-gray-700 rounded-lg text-xs overflow-auto max-h-64">
-                  <h3 className="text-gray-400 mb-2">Debug Info:</h3>
-                  <div>
-                    <p>Body Shape: {bodyShape || 'None'}</p>
-                    <p>Occasion: {occasion || 'None'}</p>
-                    <p>Season: {season || 'None'}</p>
-                    <p>Has Recommendations: {recommendations ? 'Yes' : 'No'}</p>
-                    <p>Has Seasonal Recommendations: {seasonalRecommendations ? 'Yes' : 'No'}</p>
-                    {recommendations && (
-                      <pre>{JSON.stringify(recommendations, null, 2)}</pre>
-                    )}
-                    {seasonalRecommendations && (
-                      <pre>{JSON.stringify(seasonalRecommendations, null, 2)}</pre>
-                    )}
-                  </div>
-                </div>
-              )}
+              
             </div>
 
             <Gradient />

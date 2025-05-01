@@ -58,7 +58,7 @@ const StyledUserProfile = () => {
           <p className="body-1 max-w-3xl mx-auto mb-6 text-n-2 lg:mb-8">
             Discover outfits tailored just for you
           </p>
-          <Button href="/explore" white>
+          <Button href="/" white>
             Explore more styles
           </Button>
         </div>
